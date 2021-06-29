@@ -9,6 +9,6 @@ edition = "2018"
 [dependencies]
 rand = "0.4"
 franklin_crypto = { package = "franklin-crypto", git = "https://github.com/matter-labs/franklin-crypto.git", branch="dev-dep"}
-rescue_poseidon = {path = "C:/Users/Олесь/Desktop/RUST/rescue-poseidon"}
+rescue_poseidon = {path = "rescue-poseidon"}
 
 bellman = { package = "bellman", git = "https://github.com/zkcrypto/bellman.git", branch="main"}
