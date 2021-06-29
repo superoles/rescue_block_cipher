@@ -1,0 +1,14 @@
+[package]
+name = "rescue_block_cipher"
+version = "0.1.0"
+authors = ["Олесь <olesgolembovskiy@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = "0.4"
+franklin_crypto = { package = "franklin-crypto", git = "https://github.com/matter-labs/franklin-crypto.git", branch="dev-dep"}
+rescue_poseidon = {path = "C:/Users/Олесь/Desktop/RUST/rescue-poseidon"}
+
+bellman = { package = "bellman", git = "https://github.com/zkcrypto/bellman.git", branch="main"}
