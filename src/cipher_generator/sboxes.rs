@@ -1,17 +1,7 @@
-use franklin_crypto::plonk::circuit::{
-    allocated_num::Num,
-    boolean::{self, AllocatedBit, Boolean}
-};
-use franklin_crypto::bellman::{
-    Engine,
-	pairing::bn256::{Bn256, Fr},
-};
-use franklin_crypto::bellman::SynthesisError;
+use franklin_crypto::plonk::circuit::allocated_num::Num;
+use franklin_crypto::bellman::Engine;
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
 use std::marker::PhantomData;
-
-use rescue_poseidon::common::utils::compute_gcd;
-use rescue_poseidon::traits::{CustomGate, Sbox};
 
 pub struct QuinticSBox<E: Engine, const SIZE: usize>{
     pub _marker: PhantomData<E>
@@ -46,7 +36,7 @@ impl<E: Engine, const SIZE: usize> QuinticInverseSBox<E, SIZE> {
             elem = elem.mul(cs, &element).unwrap();
             elem = elem.mul(cs, &element).unwrap();
 
-            old_elem.enforce_equal(cs, &elem);
+            old_elem.enforce_equal(cs, &elem).unwrap();
         }
     }
 }
@@ -59,7 +49,7 @@ fn big_pow<E: Engine, CS: ConstraintSystem<E>, const N: usize>(cs: &mut CS, num:
     let mut res = Num::<E>::one();
     let mut pow = *power;
     for n in 0..N {
-        for i in 0..(64 as usize) {
+        for _ in 0..(64 as usize) {
             if pow[n]%2 == 0 {
                 *num = num.mul(cs, &num).unwrap();
                 pow[n] = pow[n]/2;

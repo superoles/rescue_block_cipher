@@ -1,28 +1,12 @@
-use franklin_crypto::plonk::circuit::{
-    allocated_num::Num,
-    boolean::{self, AllocatedBit, Boolean}
-};
-use franklin_crypto::bellman::pairing::{
-    Engine,
-	bn256::{Bn256, Fr},
-};
-use franklin_crypto::bellman::SynthesisError;
+use franklin_crypto::plonk::circuit::allocated_num::Num;
+use franklin_crypto::bellman::pairing::Engine;
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
-use rand::{Rand, Rng};
 use super::cipher_generator::{
     CipherParams,
-    cipher_params_generate,
     mds::{MdsMatrix, generate_mds_matrix, inverse_matrix, dot_product, sum_vectors, sub_vectors},
     sboxes::{QuinticSBox, QuinticInverseSBox}
 };
 use std::marker::PhantomData;
-use franklin_crypto::bellman::pairing::ff::{
-    Field,
-
-    PrimeField,
-    PrimeFieldRepr,
-    BitIterator
-};
 
 pub struct ReadyCipherParams<
     E: Engine,
@@ -34,7 +18,6 @@ pub struct ReadyCipherParams<
     pub sbox2: QuinticInverseSBox<E, SIZE>,
     pub round_constants: [[Num<E>; SIZE]; RNUMBER]
 }
-
 
 pub fn generate_ready_params<
     E: Engine, 
@@ -66,8 +49,6 @@ pub fn generate_ready_params<
         round_constants
     }
 }
-
-
 
 pub fn rescue_encryption<
     E: Engine, 

@@ -1,14 +1,7 @@
-use franklin_crypto::plonk::circuit::{
-    allocated_num::Num,
-    boolean::{self, AllocatedBit, Boolean}
-};
-use franklin_crypto::bellman::pairing::{
-    Engine,
-	bn256::{Bn256, Fr},
-};
-use franklin_crypto::bellman::SynthesisError;
+use franklin_crypto::plonk::circuit::allocated_num::Num;
+use franklin_crypto::bellman::pairing::Engine;
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
-use rand::{Rand, Rng};
+use rand::Rng;
 
 #[derive(Debug, Copy, Clone)]
 pub struct MdsMatrix<E: Engine, const SIZE: usize> {
@@ -102,9 +95,6 @@ pub fn generate_vectors_for_matrix<
         return [x, y];
     }
 }
-
-
-
 
 pub fn generate_mds_matrix<
     E: Engine, 

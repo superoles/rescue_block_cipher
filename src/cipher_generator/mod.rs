@@ -1,26 +1,11 @@
 pub mod mds;
 pub mod sboxes;
 
-
-use franklin_crypto::plonk::circuit::{
-    allocated_num::Num,
-    boolean::{self, AllocatedBit, Boolean}
-};
-use franklin_crypto::bellman::pairing::{
-    Engine,
-	bn256::{Bn256, Fr},
-};
-use franklin_crypto::bellman::SynthesisError;
-use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
-use rand::{Rand, Rng};
-use franklin_crypto::bellman::pairing::ff::{
-    Field,
-    PrimeField,
-    PrimeFieldRepr,
-    BitIterator
-};
+use rand::Rng;
+use franklin_crypto::bellman::pairing::Engine;
+use franklin_crypto::bellman::pairing::ff::Field;
 use std::marker::PhantomData;
-use mds::{MdsMatrix, generate_mds_matrix, inverse_matrix, generate_vectors_for_matrix};
+use mds::generate_vectors_for_matrix;
 use sboxes::{QuinticSBox, QuinticInverseSBox};
 
 pub struct CipherParams<
