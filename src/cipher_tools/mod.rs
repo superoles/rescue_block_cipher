@@ -18,7 +18,7 @@ pub struct CipherParams<
     pub round_constants: [[E::Fr; SIZE]; RNUMBER]
 }
 
-pub fn cipher_params_generate<
+pub fn generate_cipher_params<
     E: Engine, 
     R: Rng, 
     const SIZE: usize,

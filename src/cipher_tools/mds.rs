@@ -3,24 +3,22 @@ use franklin_crypto::bellman::pairing::Engine;
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
 use rand::Rng;
 
-#[derive(Debug, Copy, Clone)]
 pub struct MdsMatrix<E: Engine, const SIZE: usize> {
 	data: [[Num<E>; SIZE]; SIZE]
 }
 
 impl<E: Engine, const SIZE: usize> MdsMatrix<E,SIZE>{
-	pub fn zero()-> Self {
+	pub fn zero_matrix()-> Self {
 		let data = [[Num::<E>::zero(); SIZE]; SIZE];
 		MdsMatrix {
 			data
 		}
 	}
 
-    pub fn row(&self, n: usize) -> [Num<E>; SIZE] {
+    pub fn get_row(&self, n: usize) -> [Num<E>; SIZE] {
         if n >= SIZE {
             panic!();
         }
-
         self.data[n]
     }
 }
@@ -35,68 +33,46 @@ pub fn generate_vectors_for_matrix<
     loop {
         let x: Vec<E::Fr> = (0..SIZE).map(|_| rng.gen()).collect();
         let y: Vec<E::Fr> = (0..SIZE).map(|_| rng.gen()).collect();
-
-        let mut invalid = false;
-
-        // quick and dirty check for uniqueness of x
-        for i in 0..(SIZE as usize) {
-            if invalid {
-                continue;
-            }
-            let el = x[i];
-            for other in x[(i+1)..].iter() {
-                if el == *other {
-                    invalid = true;
-                    break;
-                }
-            }
+        
+        if okey_vectors::<E, SIZE>(&x, &y){
+            return [x, y];
         }
-
-        if invalid {
-            continue;
-        }
-
-        // quick and dirty check for uniqueness of y
-        for i in 0..(SIZE as usize) {
-            if invalid {
-                continue;
-            }
-            let el = y[i];
-            for other in y[(i+1)..].iter() {
-                if el == *other {
-                    invalid = true;
-                    break;
-                }
-            }
-        }
-
-        if invalid {
-            continue;
-        }
-
-        // quick and dirty check for uniqueness of x vs y
-        for i in 0..(SIZE as usize) {
-            if invalid {
-                continue;
-            }
-            let el = x[i];
-            for other in y.iter() {
-                if el == *other {
-                    invalid = true;
-                    break;
-                }
-            }
-        }
-
-        if invalid {
-            continue;
-        }
-
-        return [x, y];
     }
 }
 
-pub fn generate_mds_matrix<
+fn okey_vectors<E: Engine, const SIZE: usize>(x: & Vec<E::Fr>, y: & Vec<E::Fr>)->bool {
+    
+    for i in 0..(SIZE as usize) {
+        let el = x[i];
+        for other in x[(i+1)..].iter() {
+            if el == *other {
+                return false;
+            }
+        }
+    }
+
+    for i in 0..(SIZE as usize) {
+        let el = y[i];
+        for other in y[(i+1)..].iter() {
+            if el == *other {
+                return false;
+            }
+        }
+    }
+
+    for i in 0..(SIZE as usize) {
+        let el = x[i];
+        for other in y.iter() {
+            if el == *other {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+pub fn construct_mds_matrix<
     E: Engine, 
     CS: ConstraintSystem<E>,
     const SIZE: usize
@@ -104,75 +80,58 @@ pub fn generate_mds_matrix<
     cs: &mut CS,
     vectors: &mut [Vec<E::Fr>; 2]
 )-> MdsMatrix<E, SIZE> {
-    let mut mds_matrix = MdsMatrix::<E,SIZE>::zero();
-    loop{
-		let x: Vec<Num<E>> = vectors[0].iter_mut().map(|number| Num::alloc(cs, Some(*number)).unwrap()).collect();
-		let y: Vec<Num<E>> = vectors[1].iter_mut().map(|number| Num::alloc(cs, Some(*number)).unwrap()).collect();
+    let mut mds_matrix = MdsMatrix::<E,SIZE>::zero_matrix();
 
-        let mut invalid = false;
+	let x: Vec<Num<E>> = vectors[0].iter_mut().map(|number| Num::alloc(cs, Some(*number)).unwrap()).collect();
+	let y: Vec<Num<E>> = vectors[1].iter_mut().map(|number| Num::alloc(cs, Some(*number)).unwrap()).collect();
 
-        // quick and dirty check for uniqueness of x
-        for i in 0..(SIZE as usize) {
-            if invalid {
-                continue;
-            }
-            let el = x[i];
-            for other in x[(i+1)..].iter() {
-                if Num::equals(cs, &el, &other).unwrap().get_value().unwrap() {
-                    invalid = true;
-                    break;
-                }
-            }
+    if !veryfy_vector_corectnes::<E, CS, SIZE>(cs, &x, &y){
+        panic!();
+    }
+
+    for (i, x) in x.into_iter().enumerate() {
+        for (j, y) in y.iter().enumerate() {
+            mds_matrix.data[i][j] = x.sub(cs,y).unwrap().inverse(cs).unwrap();
         }
-
-        if invalid {
-            continue;
-        }
-
-        // quick and dirty check for uniqueness of y
-        for i in 0..(SIZE as usize) {
-            if invalid {
-                continue;
-            }
-            let el = y[i];
-            for other in y[(i+1)..].iter() {
-                if Num::equals(cs, &el, &other).unwrap().get_value().unwrap() {
-                    invalid = true;
-                    break;
-                }
-            }
-        }
-
-        // quick and dirty check for uniqueness of x vs y
-        for i in 0..(SIZE as usize) {
-            if invalid {
-                continue;
-            }
-            let el = x[i];
-            for other in y.iter() {
-                if Num::equals(cs, &el, &other).unwrap().get_value().unwrap() {
-                    invalid = true;
-                    break;
-                }
-            }
-        }
-
-        if invalid {
-            continue;
-        }
-
-        for (i, x) in x.into_iter().enumerate() {
-            for (j, y) in y.iter().enumerate() {
-                mds_matrix.data[i][j] = x.sub(cs,y).unwrap().inverse(cs).unwrap();
-            }
-        }
-
-        break;
     }
     mds_matrix
 }
 
-pub fn matrix_det<
+fn veryfy_vector_corectnes<
+    E: Engine, 
+    CS: ConstraintSystem<E>,
+    const SIZE: usize
+>(cs: &mut CS, x: & Vec<Num<E>>, y: & Vec<Num<E>>) -> bool{
+    for i in 0..(SIZE as usize) {
+        let el = x[i];
+        for other in x[(i+1)..].iter() {
+            if Num::equals(cs, &el, &other).unwrap().get_value().unwrap() {
+                return false;
+            }
+        }
+    }
+
+    for i in 0..(SIZE as usize) {
+        let el = y[i];
+        for other in y[(i+1)..].iter() {
+            if Num::equals(cs, &el, &other).unwrap().get_value().unwrap() {
+                return false;
+            }
+        }
+    }
+
+    for i in 0..(SIZE as usize) {
+        let el = x[i];
+        for other in y.iter() {
+            if Num::equals(cs, &el, &other).unwrap().get_value().unwrap() {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+fn compute_determinant<
     E: Engine, 
     CS: ConstraintSystem<E>, 
     const SIZE: usize
@@ -199,7 +158,7 @@ pub fn matrix_det<
     Some(result)
 }
 
-pub fn inverse_matrix<
+pub fn construct_inverse_matrix<
     E: Engine, 
     CS: ConstraintSystem<E>, 
     const SIZE: usize    
@@ -210,12 +169,12 @@ pub fn inverse_matrix<
     if SIZE != 3 {
         return None;
     }
-    let det = matrix_det(cs, mds_matrix).unwrap();
+    let det = compute_determinant(cs, mds_matrix).unwrap();
     if det.is_zero(cs).unwrap().get_value().unwrap() {
         return None;
     }
 
-    let mut mds_invert_matrix = MdsMatrix::<E,SIZE>::zero();
+    let mut mds_invert_matrix = MdsMatrix::<E,SIZE>::zero_matrix();
 
     for i in 0..(SIZE as usize) {
         for j in 0..(SIZE as usize) {
@@ -244,7 +203,7 @@ pub fn dot_product<
     res
 }
 
-pub fn sum_vectors<
+pub fn add_vectors<
     E: Engine, 
     CS: ConstraintSystem<E>, 
     const SIZE: usize>(

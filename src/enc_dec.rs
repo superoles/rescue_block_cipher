@@ -1,9 +1,9 @@
 use franklin_crypto::plonk::circuit::allocated_num::Num;
 use franklin_crypto::bellman::pairing::Engine;
 use franklin_crypto::bellman::plonk::better_better_cs::cs::ConstraintSystem;
-use super::cipher_generator::{
+use super::cipher_tools::{
     CipherParams,
-    mds::{MdsMatrix, generate_mds_matrix, inverse_matrix, dot_product, sum_vectors, sub_vectors},
+    mds::{MdsMatrix, construct_mds_matrix, construct_inverse_matrix, dot_product, add_vectors, sub_vectors},
     sboxes::{QuinticSBox, QuinticInverseSBox}
 };
 use std::marker::PhantomData;
@@ -19,7 +19,7 @@ pub struct ReadyCipherParams<
     pub round_constants: [[Num<E>; SIZE]; RNUMBER]
 }
 
-pub fn generate_ready_params<
+pub fn construct_ready_params<
     E: Engine, 
     CS: ConstraintSystem<E>, 
     const SIZE: usize,
@@ -27,8 +27,8 @@ pub fn generate_ready_params<
     cs: &mut CS,
     params: &mut CipherParams<E, SIZE, RNUMBER>
     )-> ReadyCipherParams<E, SIZE, RNUMBER>{
-    let matrix = generate_mds_matrix::<E, CS, SIZE>(cs, &mut params.vect_for_matrix);
-    let inv_matrix = inverse_matrix::<E, CS, SIZE>(cs, &matrix).unwrap();
+    let matrix = construct_mds_matrix::<E, CS, SIZE>(cs, &mut params.vect_for_matrix);
+    let inv_matrix = construct_inverse_matrix::<E, CS, SIZE>(cs, &matrix).unwrap();
     let sbox1 = QuinticSBox::<E, SIZE>{
         _marker: PhantomData::<E>::default()
     };
@@ -60,15 +60,15 @@ pub fn rescue_encryption<
     key: &[Num<E>; SIZE], 
     plaintext: &[Num<E>; SIZE])->[Num<E>; SIZE]{
 	
-    let subkeys = generate_subkeys(cs, &params, *key);
+    let subkeys = construct_subkeys(cs, &params, *key);
 
-    let mut ciphertext = sum_vectors(cs, &plaintext, &subkeys[0]);
+    let mut ciphertext = add_vectors(cs, &plaintext, &subkeys[0]);
     let mut helptext = ciphertext;
     let matrix = &params.matrix;
 
     for i in 1..RNUMBER {
         for j in 0..SIZE {
-            helptext[j] = dot_product(cs, &ciphertext, &matrix.row(j));
+            helptext[j] = dot_product(cs, &ciphertext, &matrix.get_row(j));
         }
         ciphertext = helptext;
         if i%2 == 1 {
@@ -76,7 +76,7 @@ pub fn rescue_encryption<
         } else {
             params.sbox2.apply(cs, &mut ciphertext);
         }
-        ciphertext = sum_vectors(cs, &ciphertext, &subkeys[i]);
+        ciphertext = add_vectors(cs, &ciphertext, &subkeys[i]);
     }
     ciphertext
 }
@@ -91,7 +91,7 @@ pub fn rescue_decryption<
     key: &[Num<E>; SIZE], 
     ciphertext: &[Num<E>; SIZE])->[Num<E>; SIZE]{
 
-    let subkeys = generate_subkeys(cs, &params, *key);
+    let subkeys = construct_subkeys(cs, &params, *key);
 
     let mut plaintext = sub_vectors(cs, &ciphertext, &subkeys[RNUMBER-1]);
     let mut helptext = plaintext;
@@ -106,7 +106,7 @@ pub fn rescue_decryption<
         }
         
         for j in 0..SIZE {
-            helptext[j] = dot_product(cs, &plaintext, &matrix.row(j));
+            helptext[j] = dot_product(cs, &plaintext, &matrix.get_row(j));
         }
         plaintext = helptext;
                 
@@ -115,7 +115,7 @@ pub fn rescue_decryption<
     plaintext
 }
 
-pub fn generate_subkeys<
+fn construct_subkeys<
     E: Engine, 
     CS: ConstraintSystem<E>, 
     const SIZE: usize,
@@ -128,18 +128,18 @@ pub fn generate_subkeys<
     let raconsts = params.round_constants;
     let matrix = &params.matrix;
 
-    subkeys[0] = sum_vectors(cs, &key, &raconsts[0]);
+    subkeys[0] = add_vectors(cs, &key, &raconsts[0]);
 
     for i in 1..RNUMBER {
         for j in 0..SIZE {
-            subkeys[i][j] = dot_product(cs, &subkeys[i-1], &matrix.row(j));
+            subkeys[i][j] = dot_product(cs, &subkeys[i-1], &matrix.get_row(j));
         }
         if i%2 == 1 {
             params.sbox1.apply(cs, &mut subkeys[i]);
         } else {
             params.sbox2.apply(cs, &mut subkeys[i]);
         }
-        subkeys[i] = sum_vectors(cs, &subkeys[i], &raconsts[i]);
+        subkeys[i] = add_vectors(cs, &subkeys[i], &raconsts[i]);
     }
     subkeys
 }
